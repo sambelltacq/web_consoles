@@ -1,0 +1,1 @@
+KERNELS=="ttyUSB*", SUBSYSTEM=="tty", RUN+="/usr/local/bin/handle_serial_event"

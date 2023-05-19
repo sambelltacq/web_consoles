@@ -1,0 +1,91 @@
+#!/bin/bash
+
+ACTION=$ACTION
+DEVNAME=$DEVNAME
+SERIAL=$ID_SERIAL_SHORT
+
+function debug {
+    echo "[$(date)] ${ACTION} ${DEVNAME} ${SERIAL}">> /tmp/serial_debug.log
+    printenv >> /tmp/serial_debug.log
+    exit 1
+}
+#debug
+
+dev="${DEVNAME#/dev/}"
+
+install_dir=/root/web_consoles
+serial_dir="${install_dir}/serials"
+link_dir="${install_dir}/links"
+bin_dir=/usr/local/bin
+log_file=/tmp/serial.log
+
+
+
+if [[ ! -d $install_dir ]]; then
+	echo "[$(date)] ERROR: Invalid install directory ${install_dir}" >> $log_file
+	exit 1
+fi
+
+screen -wipe
+
+#Get hostname
+out=$(grep -h -m 1 $SERIAL $serial_dir/*)
+hostname="$(echo ${out##* } | xargs)"
+
+if [[ -z $hostname ]]; then
+    echo "[$(date)] ERROR: unknown serial ${SERIAL}" >> $log_file
+    exit 1
+fi
+
+
+echo "[$(date)] NEW EVENT! ${ACTION} ${hostname}(${SERIAL}) -> ${DEVNAME}" >> $log_file
+
+
+if [[ $ACTION == 'add' ]]; then
+
+    #Create screen if none
+    echo  "[$(date)] checking for screen" >> $log_file
+    screen -ls | grep $hostname > /dev/null 2>&1
+    if [[ $? -eq 1 ]]; then
+        echo "[$(date)] Starting screen for ${hostname} ${DEVNAME}" >> $log_file
+        #udev will kill any spawned processes unless you use a intermediary
+        echo "screen -dmS ${hostname} ${DEVNAME} 115200" | at now
+    fi
+
+    #Create dev symlink
+    ln -s $DEVNAME /dev/tty_${hostname}
+    echo "[$(date)] Created symlink /dev/${hostname}" >> $log_file
+
+    #Create node symlink
+    ln -s $DEVNAME ${link_dir}/${hostname}
+    echo "[$(date)] Created symlink ${link_dir}/${hostname}" >> $log_file
+
+    #Create bin file
+    echo screen -x $hostname > "${bin_dir}/tty_${hostname}"
+    echo "[$(date)] Created exe ${bin_dir}/tty_${hostname}" >> $log_file
+    chmod 777 $bin_dir/tty_${hostname}
+
+fi
+
+
+if [[ $ACTION == 'remove' ]]; then
+
+    #Delete screen if exists
+    screen -ls | grep $hostname > /dev/null 2>&1
+    if [[ $? -eq 0 ]]; then
+        echo "[$(date)] Removing screen for ${hostname}"
+        screen -X -S $hostname quit
+    fi
+
+    #Delete dev symlink
+    rm -f /dev/tty_${hostname}
+    echo "[$(date)] Removed symlink /dev/tty_${hostname}" >> $log_file
+
+    #Delete node symlink
+    rm -f ${link_dir}/${hostname}
+    echo "[$(date)] Removed symlink ${link_dir}/${hostname}" >> $log_file
+
+    #Delete bin file
+    rm -f ${bin_dir}/tty_${hostname}
+    echo "[$(date)] Removed exe ${bin_dir}/tty_${hostname}" >> $log_file
+fi
