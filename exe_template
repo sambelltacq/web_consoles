@@ -1,0 +1,10 @@
+#!/bin/bash
+
+echo '--------------------------------------------------------'
+echo
+echo -e "\e[3;1m To Disconnect Enter: CTRL+A then d \e[0m"
+echo
+echo '--------------------------------------------------------'
+echo "Ready to connect to HOSTNAME press any key"
+read
+screen -x HOSTNAME

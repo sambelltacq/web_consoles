@@ -33,13 +33,12 @@ out=$(grep -h -m 1 $SERIAL $serial_dir/*)
 hostname="$(echo ${out##* } | xargs)"
 
 if [[ -z $hostname ]]; then
-    echo "[$(date)] ERROR: unknown serial ${SERIAL}" >> $log_file
+    echo "[$(date)] ERROR: unknown serial '${SERIAL}'" >> $log_file
     exit 1
 fi
 
 
 echo "[$(date)] NEW EVENT! ${ACTION} ${hostname}(${SERIAL}) -> ${DEVNAME}" >> $log_file
-
 
 if [[ $ACTION == 'add' ]]; then
 
@@ -61,10 +60,10 @@ if [[ $ACTION == 'add' ]]; then
     echo "[$(date)] Created symlink ${link_dir}/${hostname}" >> $log_file
 
     #Create bin file
-    echo screen -x $hostname > "${bin_dir}/tty_${hostname}"
+    cp "${install_dir}/exe_template" "${bin_dir}/tty_${hostname}"
+    sed -i "s/HOSTNAME/${hostname}/g" "${bin_dir}/tty_${hostname}"
+    chmod 777 "${bin_dir}/tty_${hostname}"
     echo "[$(date)] Created exe ${bin_dir}/tty_${hostname}" >> $log_file
-    chmod 777 $bin_dir/tty_${hostname}
-
 fi
 
 
