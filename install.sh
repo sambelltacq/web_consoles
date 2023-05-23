@@ -24,9 +24,10 @@ apt-get install -y nodejs at screen
 
 echo "Installing node modules"
 npm install node-pty ws find-my-way
-exit 1
 
 echo "Installing service"
+sed -i -r "s#^(WorkingDirectory=).*#\1$install_dir#" web_consoles.service
+sed -i -r "s#^(ExecStart=).*#\1${install_dir}/web_consoles.js#" web_consoles.service
 cp web_consoles.service /etc/systemd/system/
 systemctl daemon-reload
 systemctl enable web_consoles

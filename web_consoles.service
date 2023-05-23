@@ -1,0 +1,12 @@
+[Unit]
+Description=web consoles deamon
+After=network.target
+
+[Service]
+User=root
+WorkingDirectory=
+ExecStart=
+Restart=always
+
+[Install]
+WantedBy=multi-user.target
