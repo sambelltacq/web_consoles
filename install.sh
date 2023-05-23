@@ -1,6 +1,6 @@
 #!/bin/bash
 
-mkdir -p links
+mkdir -p -m 777 links
 
 echo "Installing handler"
 install_dir=$(pwd)
