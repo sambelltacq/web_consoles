@@ -2,117 +2,172 @@ const http = require("http");
 const fs = require('fs');
 const pty = require('node-pty');
 const WebSocket = require('ws');
+const hostname = require("os").hostname;
+const router = require('find-my-way')()
 
 
 const host = '0.0.0.0';
 const web_port = 80;
-
-
 const socket_start = 3000;
-const max_sockets = 10
-const verbose = true;
+const max_sockets = 12
 const links_dir = 'links'
-
-const server = http.createServer();
-const wss = new WebSocket.Server({ port: 6060 });
 
 var active_ports = new Set();
 var active_consoles = {}
 
-/*
-var ptyProcess = pty.spawn('bash', [], {
-    name: 'xterm-color',
-    //   cwd: process.env.HOME,
-    env: process.env,
+//Serial monitoring
+
+fs.readdir(links_dir, (err, files) => {
+    files.forEach(filename => {
+        add_socket(filename);
+    });
 });
 
-wss.on('connection', ws => {
-    console.log("new session")
-    ptyProcess.write('screen -x test1\n');
-    ws.on('message', command => {
-        console.log(`new message ${command}`)
-        ptyProcess.write(command);
-    })
-
-    ptyProcess.on('data', function (data) {
-        console.log("new data")
-        console.log(data.length)
-        ws.send(data)
-        //console.log(data);
-    });
+fs.watch(links_dir, (event, filename) => {
+    if (fs.existsSync(`${links_dir}/${filename}`)) {
+        add_socket(filename);
+        return
+    }
+    remove_socket(filename);
 })
-*/
 
-//File
+//WebSocket
 
 function add_socket(filename){
     for (port = socket_start; port < socket_start + max_sockets; port++) {
-        console.log(`trying  port ${port}`);
         if ( ! active_ports.has(port) ) {
+            console.log(`New Serial device ${filename} port: ${port}`)
             active_ports.add(port);
             active_consoles[filename] = {};
+            active_consoles[filename].name = filename;
             active_consoles[filename].port = port;
-            active_consoles[filename].socket = new WebSocket.Server({ port: port });
+            active_consoles[filename].pty = null;
+            active_consoles[filename].pty_initialized = false;
+            active_consoles[filename].sockets = new Set();
+            active_consoles[filename].wss = new WebSocket.Server({ port: port });
+            init_socket(active_consoles[filename]);
             return
         }
     }
     console.error('No sockets left');
 }
 
-function remove_socket(filename){
-    if (filename in active_consoles) {
-        active_ports.delete(active_consoles[filename].port);
-        active_consoles[filename].socket.close()
-        delete active_consoles[filename]
+function remove_socket(device){
+    if (device in active_consoles) {
+        console.log(`${device} disconnected closing sockets`)
+        active_ports.delete(active_consoles[device].port);
+        active_consoles[device].wss.clients.forEach(ws => {
+            ws.close()
+        });
+        delete active_consoles[device];
     }
 }
 
-fs.readdir(links_dir, (err, files) => {
-    files.forEach(filename => {
-        add_socket(filename);
+function init_socket(con){
+    con.wss.on('connection', ws => {
+        console.log(`[New connection]::${con.name} total: ${con.wss.clients.size}`);
+        con.sockets.add(ws);
+
+        if(!con.pty_initialized){
+            console.log(`initializing pty for ${con.name}`);
+            init_pty(con);
+            con.pty_initialized = true
+        }
+
+        ws.on('message', command => {
+            con.pty.write(command);
+        })
+
+        ws.on('close', function () {
+            console.log(`[Lost connection]::${con.name} total: ${con.wss.clients.size}`);
+            con.sockets.delete(ws);
+            delete ws;
+        });
+
+        ws.on('error', console.error);
+    })
+}
+function init_pty(con){
+    con.pty = pty.spawn('bash', [], {
+        name: 'xterm-color',
+        cols: 150,
+        rows: 80,
+        env: process.env,
     });
-    console.log(active_consoles);
-});
+    con.pty.write(`screen -x ${con.name}\n`);
+    con.pty.on('data', function (data) {
+        con.sockets.forEach(ws => {
+            async_send(ws);
+        })
+        async function async_send(socket){
+            socket.send(data);
+        }
+    });
 
-fs.watch(links_dir, (event, filename) => {
-    if (fs.existsSync(`${links_dir}/${filename}`)) {
-        add_socket(filename);
-        console.log(active_consoles);
-        return
-    }
-    remove_socket(filename);
-    console.log(active_consoles);
-})
-
-//Socket
+}
 
 //Webserver
 
-server.on('request', (request, response) => {
-    if(request.socket.remoteAddress == '10.12.196.15'){
-        //old multimon hush
+MIME_MAP = {}
+MIME_MAP.css = { 'content-type': 'text/css' }
+MIME_MAP.js = { 'content-type': 'text/javascript' }
+
+
+
+router.get('/', (req, res, params) => {
+    res.writeHead(200, { 'content-type': 'text/html' });
+    fs.createReadStream('static/index.html').pipe(res);
+    //fs.createReadStream('static/consoles.html').pipe(res);
+})
+
+router.get('/consoles', (req, res, params) => {
+    res.writeHead(200, { 'content-type': 'text/html' });
+    //fs.createReadStream('static/index.html').pipe(res);
+    fs.createReadStream('static/consoles.html').pipe(res);
+})
+
+router.get('/consoles/active', (req, res, params) => {
+    var result = JSON.stringify(active_consoles, function(key, val) {
+        excluded = ['wss', 'pty', 'pty_initialized', 'sockets'];
+        if(excluded.indexOf(key) == -1){
+            return val;
+        }
+    });
+    res.writeHead(200, { 'content-type': 'text/html' });
+    res.write(result);
+    res.end();
+})
+
+router.get('/static/:filename', (req, res, params) => {
+    filename = params['filename'];
+    console.log(filename);
+    if (!fs.existsSync(`static/${filename}`)) {
+        console.log('file doesnt exists');
+        res.writeHead(404);
+        res.end();
         return;
     }
-    if(verbose){
-        console.log(`Request ${request.method} ${request.url}`);
+    console.log('after');
+    ext = filename.split('.').pop();
+    if(ext in MIME_MAP){
+        res.writeHead(200, MIME_MAP[ext]);
     }
-    switch (request.url) {
-        case "/":
-            response.writeHead(200, { 'content-type': 'text/html' });
-            fs.createReadStream('static/index.html').pipe(response);
-            break;
+    fs.createReadStream(`static/${filename}`).pipe(res);
+})
 
-        case "/consoles":
-            response.writeHead(200, { 'content-type': 'text/html' });
-            fs.createReadStream('static/consoles.html').pipe(response);
-            break;
-
-        default:
-            response.writeHead(404, { 'content-type': 'text/html' });
-            response.write('404 :/');
-            response.end();
+router.get('/cgi-bin/showconsoles.cgi', (req, res, params) => {
+    res.writeHead(200, { 'content-type': 'text/plain' });
+    res.write(`Consoles attached to ${hostname}\n`);
+    res.write(`${Date().toLocaleString()}\n`);
+    for (const property in active_consoles) {
+        res.write(`${property} active\n`);
     }
-});
+    res.end();
+})
+
+const server = http.createServer((req, res) => {
+    router.lookup(req, res)
+})
 
 server.listen(web_port, host, () => {
     console.log(`Server is running on http://${host}:${web_port}`);

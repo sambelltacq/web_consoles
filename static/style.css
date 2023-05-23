@@ -1,0 +1,86 @@
+html, body{
+    height: 100%;
+}
+body{
+    background-color: antiquewhite;
+    margin: 0;
+    font-family: "Courier New", Courier, monospace;
+}
+.hidden{
+    display: none;
+}
+.main{
+    display: flex;
+    height: 100%;
+    gap: 10px;
+}
+.side_nav{
+    max-width: 20%;
+    user-select: none;
+    background-color: #f5f6fa;
+    border-right: 2px solid #002AFF;
+    display: flex;
+    flex-direction: column;
+}
+.side_nav h1{
+    margin: 0;
+    border-bottom: 2px solid #002AFF;
+}
+.side_nav .hostname{
+    color: black;
+    padding: 20px 30px;
+    display: block;
+    text-decoration: none;
+}
+.side_nav #device_list{
+    flex-grow: 1;
+}
+.side_nav label{
+    display: block;
+    text-align: center;
+    cursor: pointer;
+    padding: 20px 0px;
+    font-weight: bold;
+}
+.side_nav label:hover{
+    background-color: rgba(0, 0, 0, 0.2);
+}
+.side_nav input{
+    display: none;
+}
+.side_nav input:checked + label{
+    background-color: #70a1ff;
+}
+.side_nav .help_box{
+    margin-bottom: 20px;
+    text-align: center;
+}
+section{
+    width: 60%;
+    flex-grow: 1;
+    padding: 10px;
+}
+#terminal{
+    height: 100%;
+    width: 100%;
+    position: relative;
+    z-index: 499;
+    border: 1px solid purple;
+    background-color: black;
+}
+#conn_status{
+    position: absolute;
+    top: 0;
+    right: 0;
+    margin-right: 20px;
+    font-weight: bold;
+    font-size: 20px;
+    z-index: 500;
+    user-select: none;
+}
+.GREEN {
+    color: #2ed573;
+}
+.RED {
+    color: #e84118;
+}

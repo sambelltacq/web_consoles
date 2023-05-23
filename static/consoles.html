@@ -1,0 +1,153 @@
+<!DOCTYPE html>
+<html>
+    <head>
+        <link href="static/style.css" rel="stylesheet">
+        <link href="static/xterm.min.css" rel="stylesheet">
+        <script src="static/xterm.min.js"></script>
+        <script src="static/xterm-addon-fit.min.js"></script>
+    </head>
+    <body>
+        <main class="main">
+            <nav class="side_nav">
+                <h1>
+                    <a href="../" class="hostname"></a>
+                </h1>
+                <div id="device_list"></div>
+                <div class="help_box">
+                    <p>PGUP - up</p>
+                    <p>PGDOWN - down</p>
+                </div>
+            </nav>
+            <section>
+                <div id="terminal">
+                    <span id="conn_status" class="RED">unconnected</span>
+                </div>
+            </section>
+
+        </main>
+    </body>
+    <script>
+        const url_base = new URL(window.location.pathname, window.location.origin).href;
+        const conn_status = document.getElementById('conn_status')
+        const term_elem = document.getElementById('terminal');
+        const term = new Terminal({cursorBlink: true});
+        const hostname = window.location.hostname
+        var socket = null;
+        var last_input = null;
+
+        function main(){
+            document.querySelectorAll('.hostname').forEach(function(elem) {
+                elem.innerText = hostname;
+            });
+            SOH = '\u0001' //ctrl-a
+            EOT = '\u0004' //ctrl-b
+            ESC = '\u001B'
+            PGUP = `${ESC}[5~`;
+            PGDWN = `${ESC}[6~`;
+            blocked_keys = [SOH, EOT];
+            move_keys = [PGUP, PGDWN];
+            move = false;
+            term.open(term_elem);
+            term.onData(char => {
+                if(socket){
+                    if(blocked_keys.indexOf(char)>=0){
+                        return;
+                    }
+                    if(move_keys.indexOf(char)>=0){
+                        move = true;
+                        socket.send(SOH);
+                        socket.send(ESC);
+                        socket.send(char);
+                        return;
+                    }
+                    if(move){
+                        socket.send(ESC);
+                    }
+                    move = false
+                    socket.send(char);
+                }
+            });
+            fa = new FitAddon.FitAddon
+            term.loadAddon(fa);
+            fa.fit();
+            window.onresize = function(){
+                fa.fit();
+            };
+            build_active();
+        }
+
+        function init(port){
+            console.log(socket);
+            if(socket != null){
+                console.log('Closing existing socket');
+                socket.close();
+                socket = null;
+                term.clear();
+                term.reset();
+            }
+            socket = new WebSocket(`ws://${hostname}:${port}`);
+            term.focus();
+            socket.onopen = function(event){
+                console.log(`socket opened port  ${port}`);
+                conn_status.innerText = 'Connected';
+                conn_status.className = 'GREEN';
+
+                socket.onmessage = function(event){
+                    term.write(event.data);
+                }
+
+                socket.onclose = function(event){
+                    console.log('Socket closed');
+                    conn_status.innerText = 'Disconnected';
+                    conn_status.className = 'RED';
+                }
+            }
+        }
+
+        function send_request(url, method, callback, payload = null){
+            var xhr = new XMLHttpRequest();
+            xhr.open(method, url.href, true);
+            xhr.onreadystatechange = function() {
+                if(xhr.readyState == 4) {
+                    callback(xhr.status, xhr.response);
+                }
+            }
+            xhr.send(payload);
+        }
+
+        function build_active(){
+            let url = new URL(`${url_base}/active`);
+            const device_list = document.getElementById('device_list');
+            send_request(url, 'GET', function (code, response){
+                if(code != 200){
+                    return;
+                }
+                devices = JSON.parse(response);
+                for(const name in devices){
+                    new_radio = document.createElement('input');
+                    new_radio.type = 'radio';
+                    new_radio.id = name;
+                    new_radio.dataset.port = devices[name].port;
+                    new_radio.name = 'consoles';
+                    new_radio.addEventListener('click', handle_selection);
+                    new_label = document.createElement('label');
+                    new_label.innerText = name;
+                    new_label.setAttribute('for', name);
+
+                    device_list.appendChild(new_radio);
+                    device_list.appendChild(new_label);
+                }
+            });
+        }
+
+        function resize_term(fa){
+            fa.fit();
+        }
+
+        function handle_selection(e){
+            init(this.dataset.port)
+        }
+
+        main();
+    </script>
+</html>
