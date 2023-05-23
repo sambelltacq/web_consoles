@@ -1,6 +1,6 @@
 #!/bin/bash
 
-mkdir links
+mkdir -p links
 
 echo "Installing handler"
 install_dir=$(pwd)
@@ -15,11 +15,15 @@ echo "Installing rules"
 chmod 755 99-serial_console.rules
 cp 99-serial_console.rules /etc/udev/rules.d/
 
+echo "Installing Misc"
+chmod 755 .screenrc
+cp .screenrc ~/
+
 echo "Installing packages"
-apt-get install -y nodejs at
+apt-get install -y nodejs at screen
 
 echo "Installing node modules"
-npm install node-pty ws
+npm install node-pty ws find-my-way
 exit 1
 
 echo "Installing service"

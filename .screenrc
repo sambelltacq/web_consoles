@@ -1,0 +1,4 @@
+vbell off
+defscrollback 4000
+termcapinfo xterm* vt100 ti@:te@
+msgwait 0
