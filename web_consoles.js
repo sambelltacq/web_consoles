@@ -4,7 +4,7 @@ const http = require("http");
 const fs = require('fs');
 const pty = require('node-pty');
 const WebSocket = require('ws');
-const hostname = require("os").hostname;
+const os = require("os");
 const router = require('find-my-way')()
 
 
@@ -13,6 +13,7 @@ const web_port = 80;
 const socket_start = 3000;
 const max_sockets = 12
 const links_dir = 'links'
+const hostname = os.hostname;
 
 var active_ports = new Set();
 var active_consoles = {}
@@ -20,18 +21,24 @@ var active_consoles = {}
 //Serial monitoring
 
 fs.readdir(links_dir, (err, files) => {
+    system_start = Date.now() - (os.uptime() * 1000);
     files.forEach(filename => {
+        stats = fs.lstatSync(`${links_dir}/${filename}`)
+        if(stats.mtimeMs < system_start){
+            console.log(`Removing stale symlink`);
+            fs.unlinkSync(`${links_dir}/${filename}`)
+            return
+        }
         add_socket(filename);
     });
+    fs.watch(links_dir, (event, filename) => {
+        if (fs.existsSync(`${links_dir}/${filename}`)) {
+            add_socket(filename);
+            return
+        }
+        remove_socket(filename);
+    })
 });
-
-fs.watch(links_dir, (event, filename) => {
-    if (fs.existsSync(`${links_dir}/${filename}`)) {
-        add_socket(filename);
-        return
-    }
-    remove_socket(filename);
-})
 
 //WebSocket
 
@@ -115,7 +122,6 @@ MIME_MAP.css = { 'content-type': 'text/css' }
 MIME_MAP.js = { 'content-type': 'text/javascript' }
 
 
-
 router.get('/', (req, res, params) => {
     res.writeHead(200, { 'content-type': 'text/html' });
     fs.createReadStream('static/index.html').pipe(res);
@@ -161,8 +167,8 @@ router.get('/cgi-bin/showconsoles.cgi', (req, res, params) => {
     res.writeHead(200, { 'content-type': 'text/plain' });
     res.write(`Consoles attached to ${hostname}\n`);
     res.write(`${Date().toLocaleString()}\n`);
-    for (const property in active_consoles) {
-        res.write(`${property} active\n`);
+    for (const device in active_consoles) {
+        res.write(`tty_${device} connected\n`);
     }
     res.end();
 })

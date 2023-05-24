@@ -32,12 +32,6 @@ screen -wipe
 out=$(grep -h -m 1 $SERIAL $serial_dir/*)
 hostname="$(echo ${out##* } | xargs)"
 
-if [[ -z $hostname ]]; then
-    echo "[$(date)] ERROR: unknown serial '${SERIAL}'" >> $log_file
-    exit 1
-fi
-
-
 echo "[$(date)] NEW EVENT! ${ACTION} ${hostname}(${SERIAL}) -> ${DEVNAME}" >> $log_file
 
 if [[ $ACTION == 'add' ]]; then
@@ -52,12 +46,22 @@ if [[ $ACTION == 'add' ]]; then
     fi
 
     #Create dev symlink
-    ln -s $DEVNAME /dev/tty_${hostname}
-    echo "[$(date)] Created symlink /dev/${hostname}" >> $log_file
+    dev_symlink="/dev/tty_${hostname}"
+    if [[ -e $dev_symlink ]]; then
+        echo "[$(date)] ERROR: Deleting stale symlink ${dev_symlink}" >> $log_file
+        rm $dev_symlink
+    fi
+    ln -s $DEVNAME $dev_symlink
+    echo "[$(date)] Created symlink ${dev_symlink}" >> $log_file
 
     #Create node symlink
-    ln -s $DEVNAME ${link_dir}/${hostname}
-    echo "[$(date)] Created symlink ${link_dir}/${hostname}" >> $log_file
+    node_symlink="${link_dir}/${hostname}"
+    if [[ -e $node_symlink ]]; then
+        echo "[$(date)] ERROR: Deleting stale symlink ${node_symlink}" >> $log_file
+        rm $node_symlink
+    fi
+    ln -s $DEVNAME $node_symlink
+    echo "[$(date)] Created symlink ${node_symlink}" >> $log_file
 
     #Create bin file
     cp "${install_dir}/exe_template" "${bin_dir}/tty_${hostname}"
@@ -77,12 +81,14 @@ if [[ $ACTION == 'remove' ]]; then
     fi
 
     #Delete dev symlink
-    rm -f /dev/tty_${hostname}
-    echo "[$(date)] Removed symlink /dev/tty_${hostname}" >> $log_file
+    dev_symlink="/dev/tty_${hostname}"
+    rm -f $dev_symlink
+    echo "[$(date)] Removed symlink ${dev_symlink}" >> $log_file
 
     #Delete node symlink
-    rm -f ${link_dir}/${hostname}
-    echo "[$(date)] Removed symlink ${link_dir}/${hostname}" >> $log_file
+    node_symlink="${link_dir}/${hostname}"
+    rm -f $node_symlink
+    echo "[$(date)] Removed symlink ${node_symlink}" >> $log_file
 
     #Delete bin file
     rm -f ${bin_dir}/tty_${hostname}
