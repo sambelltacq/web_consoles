@@ -1,13 +1,10 @@
 #!/bin/bash
 
 mkdir -p -m 777 links
+install_dir=$(pwd)
 
 echo "Installing handler"
-install_dir=$(pwd)
-default_location='/root/web_consoles'
-if [ $install_dir != $default_location ]; then
-    sed -i -r "s#^(install_dir=).*#\1$install_dir#" handle_serial_event
-fi
+sed -i -r "s#^(install_dir=).*#\1$install_dir#" handle_serial_event
 chmod 755 handle_serial_event
 cp handle_serial_event /usr/local/bin/
 
@@ -20,7 +17,8 @@ chmod 755 .screenrc
 cp .screenrc ~/
 
 echo "Installing packages"
-apt-get install -y nodejs at screen
+curl -fsSL https://deb.nodesource.com/setup_current.x | sudo -E bash -
+apt install -y build-essential nodejs at screen
 
 echo "Installing node modules"
 npm install node-pty ws find-my-way
