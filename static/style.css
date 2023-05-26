@@ -26,6 +26,7 @@ body{
 .side_nav h1{
     margin: 0;
     border-bottom: 2px solid #002AFF;
+    text-align: center;
 }
 .side_nav .hostname{
     color: black;
