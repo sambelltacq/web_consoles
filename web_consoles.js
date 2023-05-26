@@ -7,17 +7,103 @@ const WebSocket = require('ws');
 const os = require("os");
 const router = require('find-my-way')()
 
-const master = 'http://eigg/endpoint/tty/';
+const master = 'eigg';
+const endpoint = '/endpoint/tty/'
 const host = '0.0.0.0';
 const web_port = 80;
 const socket_start = 3000;
 const max_sockets = 12;
 const links_dir = 'links';
-const hostname = os.hostname;
+const hostname = os.hostname();
 
 var active_ports = new Set();
 var active_consoles = {};
 var unknown_devices = new Set();
+
+// sync to master
+
+function announce_to_master(){
+    let data = {
+        'action': 'announce',
+        'host'  : hostname,
+    };
+    let data_encoded = JSON.stringify(data);
+    let options = {
+        host: master,
+        path: endpoint,
+        method: 'POST',
+        headers: {
+            'Content-Length': Buffer.byteLength(data_encoded),
+            'Content-Type': 'application/json',
+        },
+    }
+    let req = http.request(options, res => {
+            let data = [];
+            res.on('data', chunk => data.push(chunk));
+            res.on('end',() => {
+                if(res.statusCode == 201){
+                    console.log(`announced presence to ${master}`);
+                    sync_latest().then(
+                        result => {},
+                        error => {},
+                    );
+                }
+            });
+            res.on('error', () => console.log(`Error: unable to contact ${master}`));
+        }
+    )
+    req.on('error', err => console.log(`Error: unable to contact ${master}`));
+    req.write(data_encoded);
+    req.end();
+}
+
+function get_remote_file(url){
+    return new Promise((resolve, reject) => {
+        http.get(url, res => {
+            let data = [];
+            res.on('data', chunk => {
+                data.push(chunk);
+            });
+            res.on('end', () => {
+                if(200 <= res.statusCode &&  res.statusCode < 300){
+                    const files = Buffer.concat(data).toString();
+                    resolve(files);
+                }
+                reject(res.statusCode);
+            })
+        }).on('error', err => {
+            reject(err.message);
+        });
+    })
+}
+
+function sync_latest(){
+    return new Promise((resolve, reject) => {
+        serial_files = get_remote_file(`http://${master}${endpoint}serials/`);
+        serial_files.then(
+            result => {
+                responses = [];
+                result = JSON.parse(result);
+                result.forEach(filename => {
+                    response = get_remote_file(`http://${master}${endpoint}serials/${filename}`);
+                    responses.push(response);
+                    response.then(
+                        data => {
+                            fs.writeFileSync(`serials/${filename}`, data);
+                            console.log(`Updated ${filename}`);
+                        },
+                        error => {reject(`${error} unable to copy serials from host`)}
+                    )
+                });
+                Promise.all(responses).then((values) => {
+                    resolve('All files synced successfully');
+                });
+            },
+            error => {reject(`${error} unable to find serial filenames`)}
+        )
+    })
+}
+announce_to_master();
 
 //Serial monitoring
 
@@ -147,7 +233,6 @@ MIME_MAP = {}
 MIME_MAP.css = { 'content-type': 'text/css' }
 MIME_MAP.js = { 'content-type': 'text/javascript' }
 
-
 router.get('/', (req, res, params) => {
     res.writeHead(200, { 'content-type': 'text/html' });
     fs.createReadStream('static/index.html').pipe(res);
@@ -201,15 +286,20 @@ router.get('/cgi-bin/showconsoles.cgi', (req, res, params) => {
     res.end();
 })
 
-router.post('/consoles/endpoint', (req, res, params) => {
-    res.writeHead(200, { 'content-type': 'text/plain' });
-    res.end();
-    /*
-        endpoint to run functions?
-        actions
-            -get_latest = get latest serials nums
-
-    */
+router.get('/consoles/sync', (req, res, params) => {
+    console.log(`serial sync requested`);
+    sync_latest().then(
+        result => {
+            res.writeHead(200, { 'content-type': 'text/plain' });
+            res.write('sync success');
+            res.end();
+        },
+        error => {
+            res.writeHead(500, { 'content-type': 'text/plain' });
+            res.write(`sync failed ${error}`);
+            res.end();
+        }
+    );
 })
 
 const server = http.createServer((req, res) => {
