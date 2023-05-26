@@ -11,8 +11,6 @@ function debug {
 }
 #debug
 
-dev="${DEVNAME#/dev/}"
-
 install_dir=/root/web_consoles
 serial_dir="${install_dir}/serials"
 link_dir="${install_dir}/links"
@@ -20,6 +18,10 @@ bin_dir=/usr/local/bin
 log_file=/tmp/serial.log
 
 
+if [[ -z $ACTION || -z $DEVNAME || -z $SERIAL ]]; then
+    echo "[$(date)] ERROR: One of more vars undefined ${ACTION} ${DEVNAME} ${SERIAL}" >> $log_file
+    exit 1
+fi
 
 if [[ ! -d $install_dir ]]; then
 	echo "[$(date)] ERROR: Invalid install directory ${install_dir}" >> $log_file
@@ -31,6 +33,24 @@ screen -wipe
 #Get hostname
 out=$(grep -h -m 1 $SERIAL $serial_dir/*)
 hostname="$(echo ${out##* } | xargs)"
+
+if [[ -z $hostname ]]; then
+
+    #handle undefined serial
+    echo "[$(date)] ERROR: unknown serial '${SERIAL}'" >> $log_file
+    if [[ $ACTION == 'add' ]]; then
+        echo "[$(date)] ERROR: added unknown serial '${SERIAL}'" >> $log_file
+        if [[ -e "${link_dir}/${SERIAL}.unknown" ]]; then
+            rm "${link_dir}/${SERIAL}.unknown"
+        fi
+        ln -s $DEVNAME "${link_dir}/${SERIAL}.unknown"
+    fi
+    if [[ $ACTION == 'remove' ]]; then
+        echo "[$(date)] ERROR: removed unknown serial '${SERIAL}'" >> $log_file
+        rm "${link_dir}/${SERIAL}.unknown"
+    fi
+    exit 1
+fi
 
 echo "[$(date)] NEW EVENT! ${ACTION} ${hostname}(${SERIAL}) -> ${DEVNAME}" >> $log_file
 

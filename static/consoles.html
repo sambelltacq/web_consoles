@@ -116,26 +116,33 @@
         }
 
         function build_active(){
-            let url = new URL(`${url_base}/active`);
+            let url = new URL(`${url_base}/connected`);
             const device_list = document.getElementById('device_list');
             send_request(url, 'GET', function (code, response){
                 if(code != 200){
                     return;
                 }
-                devices = JSON.parse(response);
-                for(const name in devices){
+                connected = JSON.parse(response);
+                for(const [idx, state] of Object.entries(connected.known)) {
                     new_radio = document.createElement('input');
                     new_radio.type = 'radio';
-                    new_radio.id = name;
-                    new_radio.dataset.port = devices[name].port;
+                    new_radio.id = state.name;
+                    new_radio.dataset.port = state.port;
                     new_radio.name = 'consoles';
                     new_radio.addEventListener('click', handle_selection);
                     new_label = document.createElement('label');
-                    new_label.innerText = name;
-                    new_label.setAttribute('for', name);
+                    new_label.innerText = state.name;
+                    new_label.setAttribute('for', state.name);
 
                     device_list.appendChild(new_radio);
                     device_list.appendChild(new_label);
+                }
+                if(connected.unknown.length > 0){
+                    new_link = document.createElement('a');
+                    new_link.href = new URL(connected.master);
+                    new_link.innerText = 'Unknown device detected click to register';
+                    new_link.className = 'unknown_link';
+                    device_list.appendChild(new_link);
                 }
             });
         }
