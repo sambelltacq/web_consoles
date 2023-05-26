@@ -1,6 +1,6 @@
 [Unit]
 Description=web consoles deamon
-After=network.target
+After=network-online.target
 
 [Service]
 User=root
