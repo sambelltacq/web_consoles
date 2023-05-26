@@ -255,6 +255,7 @@ router.get('/consoles/connected', (req, res, params) => {
         temp.conns = item.sockets.size
         payload.known.push(temp);
     }
+    res.setHeader('Access-Control-Allow-Origin', '*');
     res.writeHead(200, { 'content-type': 'application/json' });
     res.write(JSON.stringify(payload));
     res.end();
@@ -277,6 +278,7 @@ router.get('/static/:filename', (req, res, params) => {
 })
 
 router.get('/cgi-bin/showconsoles.cgi', (req, res, params) => {
+    res.setHeader('Access-Control-Allow-Origin', '*');
     res.writeHead(200, { 'content-type': 'text/plain' });
     res.write(`Consoles attached to ${hostname}\n`);
     res.write(`${Date().toLocaleString()}\n`);
@@ -288,8 +290,10 @@ router.get('/cgi-bin/showconsoles.cgi', (req, res, params) => {
 
 router.get('/consoles/sync', (req, res, params) => {
     console.log(`serial sync requested`);
+    res.setHeader('Access-Control-Allow-Origin', '*');
     sync_latest().then(
         result => {
+            unknown_devices.clear();
             res.writeHead(200, { 'content-type': 'text/plain' });
             res.write('sync success');
             res.end();
