@@ -1,4 +1,4 @@
 vbell off
 defscrollback 4000
-termcapinfo xterm* vt100 ti@:te@
+termcapinfo xterm* ti@:te@
 msgwait 0
