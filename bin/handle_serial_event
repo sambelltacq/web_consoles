@@ -84,7 +84,7 @@ if [[ $ACTION == 'add' ]]; then
     echo "[$(date)] Created symlink ${node_symlink}" >> $log_file
 
     #Create bin file
-    cp "${install_dir}/exe_template" "${bin_dir}/tty_${hostname}"
+    cp "${install_dir}/bin/exe_template" "${bin_dir}/tty_${hostname}"
     sed -i "s/HOSTNAME/${hostname}/g" "${bin_dir}/tty_${hostname}"
     chmod 777 "${bin_dir}/tty_${hostname}"
     echo "[$(date)] Created exe ${bin_dir}/tty_${hostname}" >> $log_file
