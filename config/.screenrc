@@ -2,3 +2,6 @@ vbell off
 defscrollback 4000
 termcapinfo xterm* ti@:te@
 msgwait 0
+hardstatus off
+hardstatus alwayslastline
+hardstatus string '%{= Kd}CTRL-D + A to detach %{= Kd}%+w %-= %{KG} %H%{KW}|%{KY}%101`%{KW}|%D %M %d %Y%{= Kc} %C%A%{-}'
